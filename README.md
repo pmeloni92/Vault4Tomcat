@@ -1,4 +1,4 @@
-# Vault4Tomcat (VaultCat)
+# Vault4Tomcat
 
 A lightweight **HashiCorp Vault** integration for **Apache Tomcat**.  
 Securely fetch secrets at runtime, eliminate hardcoded credentials, and simplify Tomcat configuration.
