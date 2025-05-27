@@ -27,7 +27,7 @@ It dynamically resolves `${vault:path#key}` placeholders.
 
 ## Installation
 
-### Prerequisite: Have a Hasicorp Vault deployed
+### Prerequisite: Have a Hashicorp Vault deployed
 Example deployment:
 ```
 podman run --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=my-root-token' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' -p 8200:8200 hashicorp/vault
