@@ -23,8 +23,8 @@ public class LogicalResponse {
      *
      * @param restResponse The raw HTTP response from Vault.
      */
-    public LogicalResponse(RestResponse restResponse) {
-        parseResponseData(restResponse.body(), "readV2");
+    public LogicalResponse(final RestResponse restResponse, final String operation) {
+        parseResponseData(restResponse.body(), operation);
     }
 
     private void parseResponseData(final byte[] responseBytes, final String operation) {
@@ -38,6 +38,10 @@ public class LogicalResponse {
                 if (null != metadataValue) {
                     parseJsonIntoMap(metadataValue.asObject(), this.metadata);
                 }
+            } else if (operation.equals("login")) {
+                jsonObject = jsonObject.get("auth").asObject();
+                parseJsonIntoMap(jsonObject, this.data);
+                return;
             }
 
             parseJsonIntoMap(jsonObject.get("data").asObject(), this.data);

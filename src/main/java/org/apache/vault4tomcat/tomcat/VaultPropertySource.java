@@ -36,21 +36,9 @@ public class VaultPropertySource implements IntrospectionUtils.PropertySource {
             catalina = catalinaBase;
         }
 
-        VaultConfig cfg;
-        try {
-            cfg = VaultConfig.loadFromProperties(catalina + PROPERTY_FILE_RELATIVE_PATH);
-        } catch (Exception e) {
-            cfg = VaultConfig.loadFromEnvironment();
-            if (cfg.getToken() == null) {
-                throw new RuntimeException(e);
-            }
-        }
+        VaultConfig cfg = new VaultConfig(catalina + PROPERTY_FILE_RELATIVE_PATH);
 
-        VaultAuthenticator auth = new TokenAuthentication();
-
-        // Initialize Vault client (e.g., read Vault address/token from env or system props)
-        this.vaultClient = new VaultClient(cfg, auth);
-        // The VaultClient should handle auth (perhaps using VAULT_TOKEN env var, etc.)
+        this.vaultClient = new VaultClient(cfg);
     }
 
     @Override
@@ -94,7 +82,6 @@ public class VaultPropertySource implements IntrospectionUtils.PropertySource {
         } catch (Exception e) {
             // Handle unexpected errors (e.g., VaultClient exceptions)
             log.error("Error retrieving Vault secret for " + key + ": " + e.getMessage());
-            e.printStackTrace();  // or log the stack trace via logger
             return null;
         }
     }

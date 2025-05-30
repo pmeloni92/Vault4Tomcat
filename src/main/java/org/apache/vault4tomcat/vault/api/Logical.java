@@ -59,4 +59,8 @@ public class Logical {
         return LogicalUtilities.readV2(path, config, nameSpace);
     }
 
+    public LogicalResponse login(final String roleId, final String secretId) throws VaultException {
+        return LogicalUtilities.appRoleLogin(config, roleId, secretId);
+    }
+
 }

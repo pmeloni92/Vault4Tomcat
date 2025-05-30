@@ -1,6 +1,5 @@
 package org.apache.vault4tomcat.core;
 
-import org.apache.vault4tomcat.auth.TokenAuthentication;
 import org.apache.vault4tomcat.config.VaultConfig;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -28,8 +27,7 @@ class VaultClientTest {
 
     @Test
     void testSecretRetrievalSuccess() throws Exception {
-        TokenAuthentication auth = new TokenAuthentication();
-        VaultClient client = new VaultClient(testConfig, auth);
+        VaultClient client = new VaultClient(testConfig);
         // Attempt to retrieve a known secret (assumes "secret/myapp/config" exists in Vault)
         Map<String, String> secretData = client.getSecret("myapp/config");
         assertNotNull(secretData, "Secret data should not be null");
@@ -42,10 +40,9 @@ class VaultClientTest {
     void testInvalidTokenThrowsException() {
         // Use an invalid token to ensure authentication fails
         VaultConfig badConfig = new VaultConfig("http://127.0.0.1:8200", "invalid-token");
-        TokenAuthentication auth = new TokenAuthentication();
         // VaultClient construction or secret retrieval should throw an exception due to bad token
         assertThrows(Exception.class, () -> {
-            VaultClient badClient = new VaultClient(badConfig, auth);
+            VaultClient badClient = new VaultClient(badConfig);
             badClient.getSecret("myapp/config");
         }, "Expected an exception for invalid Vault token or unreachable Vault");
     }
