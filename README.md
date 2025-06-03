@@ -39,6 +39,47 @@ export VAULT_TOKEN=my-root-token
 vault kv put secret/myapp/config username="admin" password="s3cr3t"
 vault kv get secret/myapp/config 
 ```
+---
+For AppRole authentication:
+
+1. Enable the AppRole auth method:
+    ```
+    vault auth enable approle
+    ```
+2. Create a named role:
+    ```
+    vault write auth/approle/role/tomcat_role \
+          token_type=batch \
+          secret_id_ttl=10m \
+          token_ttl=20m \
+          token_max_ttl=30m \
+          secret_id_num_uses=40
+    ```
+3. Fetch the RoleID of the AppRole:
+    ```
+    vault read auth/approle/role/tomcat_role/role-id
+    ```
+4. Get a SecretID issued against the AppRole:
+    ```
+    vault write -f auth/approle/role/tomcat_role/secret-id
+    ```
+5. Create a policy for the role:
+   1. 
+      ```
+       vi tomcat.hcl
+      ```
+      ```
+       path "secret/data/myapp/config"
+       {
+           capabilities = ["read", "sudo"]
+       }
+       ```
+   2. Format the policy file:```vault policy fmt tomcat.hcl```
+   3. Create a policy with the policy defined in file:```vault policy write tomcat tomcat.hcl```
+6. Attach policy to role: 
+
+   ```vault write -f auth/approle/role/tomcat_role token_policies="default,tomcat"```
+   
 
 ### 1. Download the latest release:
 [Vault4Tomcat Releases](https://github.com/dsoumis/Vault4Tomcat/releases)
@@ -48,10 +89,18 @@ vault kv get secret/myapp/config
 cp vault4tomcat.jar $CATALINA_BASE/lib/
 ```
 ### 3. Define environment variables or create a `conf/vault.properties` file:
+Token authentication example:
 ```
 vault.address=<http://127.0.0.1:8200>
 vault.token=<my-root-token>
 vault.ssl.verify=true
+```
+AppRole authentication example:
+```
+vault.address=<http://127.0.0.1:8200>
+vault.auth.method=approle
+vault.auth.approle.role_id=<roleId>
+vault.auth.approle.secret_id=<secretId>
 ```
 
 ### 4. Register the Property Source in `conf/catalina.properties`:
