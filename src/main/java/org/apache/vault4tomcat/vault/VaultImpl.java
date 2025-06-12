@@ -52,6 +52,7 @@ public class VaultImpl implements Vault {
      *
      * @return the VaultConfig instance
      */
+    @Override
     public VaultConfig getConfig() {
         return vaultConfig;
     }

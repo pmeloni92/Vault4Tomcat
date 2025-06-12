@@ -1,5 +1,7 @@
 package org.apache.vault4tomcat.core;
 
+import org.apache.vault4tomcat.auth.AppRoleAuthentication;
+import org.apache.vault4tomcat.auth.TokenAuthentication;
 import org.apache.vault4tomcat.auth.VaultAuthenticator;
 import org.apache.vault4tomcat.vault.Vault;
 import org.apache.vault4tomcat.config.VaultConfig;
@@ -13,19 +15,30 @@ import java.util.Map;
  * Initializes via VaultAuthenticator and maintains a Vault driver instance.
  */
 public class VaultClient {
-    private final VaultConfig config;
-    private final VaultAuthenticator authenticator;
-    private Vault vault;              // Vault driver client for making API calls
-    private String clientToken;       // Vault token obtained after authentication
+    private final Vault vault;              // Vault driver client for making API calls
 
-    public VaultClient(VaultConfig config, VaultAuthenticator authenticator) throws Exception {
-        this.config = config;
-        this.authenticator = authenticator;
-        this.clientToken = authenticator.authenticate(config);
+    public VaultClient(VaultConfig config) throws Exception {
+        this.vault = Vault.create(config);
+        VaultAuthenticator authenticator = initializeVaultAuthenticator();
+        String clientToken = authenticator.authenticate(vault);
         if (clientToken == null || clientToken.isEmpty()) {
             throw new Exception("Failed to obtain Vault token via authentication.");
         }
-        this.vault = Vault.create(config);
+
+        config.setToken(clientToken);
+    }
+
+    private VaultAuthenticator initializeVaultAuthenticator() throws VaultException {
+        String authMethod = vault.getConfig().getAuthMethod();
+        if (authMethod == null || authMethod.isEmpty()) {
+            return new TokenAuthentication();
+        }
+        switch (vault.getConfig().getAuthMethod().toLowerCase()) {
+            case "approle":
+                return new AppRoleAuthentication();
+            default:
+                throw new VaultException("Unsupported auth method: " + authMethod);
+        }
     }
 
     /**

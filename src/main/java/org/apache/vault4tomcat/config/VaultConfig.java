@@ -18,10 +18,19 @@ import java.util.Properties;
  */
 public class VaultConfig implements Serializable {
 
+    // Config property keys
+    public static final String VAULT_ADDR = "vault.address";
+    public static final String VAULT_TOKEN = "vault.token";
+    public static final String AUTH_METHOD = "vault.auth.method";
+    // AppRole
+    public static final String APPROLE_ROLE_ID = "vault.auth.approle.role_id";
+    public static final String APPROLE_SECRET_ID = "vault.auth.approle.secret_id";
+
     private String address;
+    private String authMethod;
     private String token;
     private String appRoleId;
-    private String appRoleSecret;
+    private String appRoleSecretId;
 
     private String nameSpace;
 
@@ -30,7 +39,39 @@ public class VaultConfig implements Serializable {
 
     private boolean sslVerify = true;
 
-    public VaultConfig() {
+    public VaultConfig(final String filePath) throws Exception {
+        Properties props = new Properties();
+
+        if (filePath != null && !filePath.trim().isEmpty()) {
+            try (InputStream is = new FileInputStream(filePath)) {
+                props.load(is);
+            }
+        }
+
+        String env;
+        if ((env = System.getenv("VAULT_ADDR")) != null) props.setProperty(VAULT_ADDR, env);
+        if ((env = System.getenv("VAULT_TOKEN")) != null) props.setProperty(VAULT_TOKEN, env);
+        if ((env = System.getenv("VAULT_AUTH_METHOD")) != null) props.setProperty(AUTH_METHOD, env);
+        if ((env = System.getenv("VAULT_AUTH_APPROLE_ROLE_ID")) != null) props.setProperty(APPROLE_ROLE_ID, env);
+        if ((env = System.getenv("VAULT_AUTH_APPROLE_SECRET_ID")) != null) props.setProperty(APPROLE_SECRET_ID, env);
+
+        this.address = props.getProperty(VAULT_ADDR, "http://127.0.0.1:8200");
+        if (this.address.isEmpty()) {
+            throw new IllegalArgumentException("Vault address must be specified.");
+        }
+
+        this.token = props.getProperty(VAULT_TOKEN);
+        String method = props.getProperty(AUTH_METHOD);
+        if (method == null || method.isEmpty()) {
+            method = !this.token.isEmpty() ? "token" : null;
+        }
+        this.authMethod = method;
+        if (this.authMethod == null || this.authMethod.isEmpty()) {
+            throw new IllegalArgumentException("Vault auth method must be specified (vault.auth.method or VAULT_AUTH_METHOD)");
+        }
+
+        this.appRoleId = props.getProperty(APPROLE_ROLE_ID);
+        this.appRoleSecretId = props.getProperty(APPROLE_SECRET_ID);
 
     }
 
@@ -46,8 +87,6 @@ public class VaultConfig implements Serializable {
      * <a href="https://learn.hashicorp.com/vault/operations/namespaces">https://learn.hashicorp.com/vault/operations/namespaces</a></p>
      *
      * @param nameSpace The namespace to use globally in this VaultConfig instance.
-     * @return This object, with the namespace populated, ready for additional builder-pattern
-     * method calls or else finalization with the build() method
      * @throws VaultException If any error occurs
      */
     public VaultConfig setNameSpace(final String nameSpace) throws VaultException {
@@ -59,6 +98,10 @@ public class VaultConfig implements Serializable {
         }
     }
 
+    public String getNameSpace() {
+        return nameSpace;
+    }
+
     /**
      * <p>Sets the address (URL) of the Vault server instance to which API calls should be sent.
      * E.g. <code><a href="http://127.0.0.1:8200">http://127.0.0.1:8200</a></code>.</p>
@@ -66,15 +109,16 @@ public class VaultConfig implements Serializable {
      * <p><code>address</code> is required for the Vault driver to function.
      *
      * @param address The Vault server base URL
-     * @return This object, with address populated, ready for additional builder-pattern method
-     * calls or else finalization with the build() method
      */
-    public VaultConfig setAddress(final String address) {
+    public void setAddress(final String address) {
         this.address = address.trim();
         if (this.address.endsWith("/")) {
             this.address = this.address.substring(0, this.address.length() - 1);
         }
-        return this;
+    }
+
+    public String getAddress() {
+        return address;
     }
 
     /**
@@ -93,6 +137,10 @@ public class VaultConfig implements Serializable {
         return this;
     }
 
+    public String getToken() {
+        return token;
+    }
+
     /**
      * <p>The number of seconds to wait before giving up on establishing an HTTP(S) connection to
      * the Vault server.</p>
@@ -103,12 +151,11 @@ public class VaultConfig implements Serializable {
      *
      * @param openTimeout Number of seconds to wait for an HTTP(S) connection to successfully
      * establish
-     * @return This object, with openTimeout populated, ready for additional builder-pattern method
-     * calls or else finalization with the build() method
      */
-    public VaultConfig setOpenTimeout(final Integer openTimeout) {
-        this.openTimeout = openTimeout;
-        return this;
+    public void setOpenTimeout(final Integer openTimeout) { this.openTimeout = openTimeout; }
+
+    public Integer getOpenTimeout() {
+        return openTimeout;
     }
 
     /**
@@ -121,82 +168,26 @@ public class VaultConfig implements Serializable {
      *
      * @param readTimeout Number of seconds to wait for all data to be retrieved from an established
      * HTTP(S) connection
-     * @return This object, with readTimeout populated, ready for additional builder-pattern method
-     * calls or else finalization with the build() method
      */
-    public VaultConfig setReadTimeout(final Integer readTimeout) {
-        this.readTimeout = readTimeout;
-        return this;
-    }
-
-    public void setSslVerify(boolean sslVerify) {
-        this.sslVerify = sslVerify;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public Integer getOpenTimeout() {
-        return openTimeout;
-    }
+    public void setReadTimeout(final Integer readTimeout) { this.readTimeout = readTimeout; }
 
     public Integer getReadTimeout() {
         return readTimeout;
     }
 
-    public boolean isSslVerify() {
-        return sslVerify;
+    public void setSslVerify(boolean sslVerify) {
+        this.sslVerify = sslVerify;
     }
+    public boolean isSslVerify() { return sslVerify; }
 
-    public String getNameSpace() {
-        return nameSpace;
-    }
-
-    public String getAppRoleId() { return appRoleId; }
     public void setAppRoleId(String appRoleId) { this.appRoleId = appRoleId; }
+    public String getAppRoleId() { return appRoleId; }
 
-    public String getAppRoleSecret() { return appRoleSecret; }
-    public void setAppRoleSecret(String appRoleSecret) { this.appRoleSecret = appRoleSecret; }
+    public void setAppRoleSecretId(String appRoleSecretId) { this.appRoleSecretId = appRoleSecretId; }
+    public String getAppRoleSecretId() { return appRoleSecretId; }
 
-    /**
-     * Load configuration from a .properties file.
-     */
-    public static org.apache.vault4tomcat.config.VaultConfig loadFromProperties(String filePath) throws Exception {
-        Properties props = new Properties();
-        try (InputStream is = new FileInputStream(filePath)) {
-            props.load(is);
-        }
-        org.apache.vault4tomcat.config.VaultConfig config = new org.apache.vault4tomcat.config.VaultConfig();
-        config.setAddress(props.getProperty("vault.address", "http://127.0.0.1:8200"));
-        config.setToken(props.getProperty("vault.token"));
-        config.setAppRoleId(props.getProperty("vault.appRoleId"));
-        config.setAppRoleSecret(props.getProperty("vault.appRoleSecret"));
-        return config;
-    }
+    public void setAuthMethod(String authMethod) { this.authMethod = authMethod; }
+    public String getAuthMethod() { return authMethod; }
 
-    /**
-     * Load configuration from environment variables.
-     * (Uses standard Vault env vars like VAULT_ADDR, VAULT_TOKEN, etc.)
-     */
-    public static org.apache.vault4tomcat.config.VaultConfig loadFromEnvironment() {
-        org.apache.vault4tomcat.config.VaultConfig config = new org.apache.vault4tomcat.config.VaultConfig();
-        String addr = System.getenv("VAULT_ADDR");
-        String token = System.getenv("VAULT_TOKEN");
-        config.setAddress(addr != null ? addr : "http://127.0.0.1:8200");
-        if (token != null) config.setToken(token);
-        // Similarly load other possible env vars for different auth methods
-        if (System.getenv("VAULT_ROLE_ID") != null) {
-            config.setAppRoleId(System.getenv("VAULT_ROLE_ID"));
-        }
-        if (System.getenv("VAULT_SECRET_ID") != null) {
-            config.setAppRoleSecret(System.getenv("VAULT_SECRET_ID"));
-        }
-        return config;
-    }
 }
 

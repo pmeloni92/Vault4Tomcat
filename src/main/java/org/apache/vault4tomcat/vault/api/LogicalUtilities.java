@@ -3,12 +3,9 @@ package org.apache.vault4tomcat.vault.api;
 import org.apache.vault4tomcat.config.VaultConfig;
 import org.apache.vault4tomcat.vault.VaultException;
 import org.apache.vault4tomcat.vault.response.LogicalResponse;
-import org.apache.vault4tomcat.vault.rest.Rest;
+import org.apache.vault4tomcat.vault.rest.VaultHttpClient;
 import org.apache.vault4tomcat.vault.rest.RestException;
 import org.apache.vault4tomcat.vault.rest.RestResponse;
-
-import java.util.Map;
-
 
 public class LogicalUtilities {
 
@@ -33,7 +30,7 @@ public class LogicalUtilities {
         final String endpoint = "/v1/" + pathPrefix(path) + "/data/" + cleanPath(path);
 
         try {
-            final Rest rest = new Rest()
+            final VaultHttpClient vaultHttpClient = new VaultHttpClient()
                     .url(config.getAddress() + endpoint)
                     .header("X-Vault-Token", config.getToken())
                     .header("X-Vault-Request", "true")
@@ -41,11 +38,11 @@ public class LogicalUtilities {
                     .readTimeoutSeconds(config.getReadTimeout());
 
             if (nameSpace != null && !nameSpace.isEmpty()) {
-                rest.header("X-Vault-Namespace", nameSpace);
+                vaultHttpClient.header("X-Vault-Namespace", nameSpace);
             }
 
-            final RestResponse response = rest.get();
-            return new LogicalResponse(response);
+            final RestResponse response = vaultHttpClient.get();
+            return new LogicalResponse(response, "readV2");
         } catch (RestException e) {
             throw new VaultException("Failed to read secret at path: " + path + " " + e);
         }
@@ -69,5 +66,34 @@ public class LogicalUtilities {
      */
     private static String cleanPath(String path) {
         return path.replaceFirst("^/", "");
+    }
+
+    public static LogicalResponse appRoleLogin(final VaultConfig config, final String roleId, final String secretId)
+            throws VaultException {
+        final String endpoint = "/v1/" + "auth/approle/login";
+
+        try {
+            final VaultHttpClient vaultHttpClient = new VaultHttpClient()
+                    .url(config.getAddress() + endpoint)
+                    .header("Content-Type", "application/json")
+                    .connectTimeoutSeconds(config.getOpenTimeout())
+                    .readTimeoutSeconds(config.getReadTimeout());
+
+            StringBuilder body = new StringBuilder();
+            body.append("{\"role_id\":\"").append(escapeJson(roleId)).append("\"");
+            if (secretId != null && !secretId.isEmpty()) {
+                body.append(",\"secret_id\":\"").append(escapeJson(secretId)).append("\"");
+            }
+            body.append("}");
+            final RestResponse response = vaultHttpClient.post(body.toString());
+            return new LogicalResponse(response, "login");
+        } catch (RestException e) {
+            throw new VaultException("Failed to login with the provided approle id and secret " + e);
+        }
+    }
+
+    protected static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
