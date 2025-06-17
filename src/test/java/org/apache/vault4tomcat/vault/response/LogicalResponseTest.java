@@ -29,7 +29,7 @@ public class LogicalResponseTest {
         RestResponse mockResponse = mock(RestResponse.class);
         when(mockResponse.body()).thenReturn(json.getBytes(StandardCharsets.UTF_8));
 
-        LogicalResponse response = new LogicalResponse(mockResponse);
+        LogicalResponse response = new LogicalResponse(mockResponse, "readV2");
         Map<String, String> data = response.getData();
 
         assertEquals(2, data.size());
@@ -52,7 +52,7 @@ public class LogicalResponseTest {
         RestResponse mockResponse = mock(RestResponse.class);
         when(mockResponse.body()).thenReturn(json.getBytes(StandardCharsets.UTF_8));
 
-        LogicalResponse response = new LogicalResponse(mockResponse);
+        LogicalResponse response = new LogicalResponse(mockResponse, "readV2");
         Map<String, String> data = response.getData();
 
         assertEquals(1, data.size());
@@ -72,7 +72,7 @@ public class LogicalResponseTest {
         RestResponse mockResponse = mock(RestResponse.class);
         when(mockResponse.body()).thenReturn(json.getBytes(StandardCharsets.UTF_8));
 
-        LogicalResponse response = new LogicalResponse(mockResponse);
+        LogicalResponse response = new LogicalResponse(mockResponse, "readV2");
         assertTrue(response.getData().isEmpty());
     }
 
@@ -83,7 +83,7 @@ public class LogicalResponseTest {
         RestResponse mockResponse = mock(RestResponse.class);
         when(mockResponse.body()).thenReturn(json.getBytes(StandardCharsets.UTF_8));
 
-        LogicalResponse response = new LogicalResponse(mockResponse);
+        LogicalResponse response = new LogicalResponse(mockResponse, "readV2");
         assertTrue(response.getData().isEmpty());
     }
 
@@ -103,7 +103,7 @@ public class LogicalResponseTest {
         RestResponse mockResponse = mock(RestResponse.class);
         when(mockResponse.body()).thenReturn(json.getBytes(StandardCharsets.UTF_8));
 
-        LogicalResponse response = new LogicalResponse(mockResponse);
+        LogicalResponse response = new LogicalResponse(mockResponse, "readV2");
         Map<String, String> data = response.getData();
 
         assertEquals(1, data.size());

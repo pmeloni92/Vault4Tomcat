@@ -15,13 +15,13 @@ public class VaultPropertySourceTest {
     private VaultPropertySource propertySource;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         mockVaultClient = mock(VaultClient.class);
         propertySource = new VaultPropertySource(mockVaultClient);
     }
 
     @Test
-    void testValidVaultPlaceholderReturnsSecretValue() {
+    void testValidVaultPlaceholderReturnsSecretValue() throws Exception {
         Map<String, String> secret = Map.of("password", "topsecret");
         when(mockVaultClient.getSecret("secret/app")).thenReturn(secret);
 
@@ -43,7 +43,7 @@ public class VaultPropertySourceTest {
     }
 
     @Test
-    void testUnknownVaultKeyReturnsNull() {
+    void testUnknownVaultKeyReturnsNull() throws Exception {
         Map<String, String> secret = Map.of("username", "admin");
         when(mockVaultClient.getSecret("secret/app")).thenReturn(secret);
 
@@ -58,7 +58,7 @@ public class VaultPropertySourceTest {
     }
 
     @Test
-    void testSecretIsCachedAfterFirstCall() {
+    void testSecretIsCachedAfterFirstCall() throws Exception {
         Map<String, String> secret = Map.of("token", "abc123");
         when(mockVaultClient.getSecret("secret/api")).thenReturn(secret);
 
@@ -71,7 +71,7 @@ public class VaultPropertySourceTest {
     }
 
     @Test
-    void testVaultClientThrowsExceptionReturnsNull() {
+    void testVaultClientThrowsExceptionReturnsNull() throws Exception {
         when(mockVaultClient.getSecret("secret/app")).thenThrow(new RuntimeException("Vault error"));
 
         String result = propertySource.getProperty("vault:secret/app#token");

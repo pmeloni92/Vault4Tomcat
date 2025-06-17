@@ -41,6 +41,11 @@ public class VaultPropertySource implements IntrospectionUtils.PropertySource {
         this.vaultClient = new VaultClient(cfg);
     }
 
+    //ONLY FOR TESTING PURPOSES
+    public VaultPropertySource(VaultClient vaultClient) {
+        this.vaultClient = vaultClient;
+    }
+
     @Override
     public String getProperty(String key) {
         // Only handle placeholders that start with "vault:"
