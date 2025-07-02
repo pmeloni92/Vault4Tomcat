@@ -27,7 +27,7 @@ public class AppRoleAuthentication implements VaultAuthenticator {
 
         String token = logicalResponse.getData().get(CLIENT_TOKEN);
         if (token == null || token.isEmpty()) {
-            throw new IllegalArgumentException("Vault token not provided in configuration");
+            throw new IllegalArgumentException("Failed to login");
         }
         return token;
     }

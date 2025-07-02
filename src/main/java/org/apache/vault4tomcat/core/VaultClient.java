@@ -1,6 +1,7 @@
 package org.apache.vault4tomcat.core;
 
 import org.apache.vault4tomcat.auth.AppRoleAuthentication;
+import org.apache.vault4tomcat.auth.AwsIamAuthentication;
 import org.apache.vault4tomcat.auth.TokenAuthentication;
 import org.apache.vault4tomcat.auth.VaultAuthenticator;
 import org.apache.vault4tomcat.vault.Vault;
@@ -33,12 +34,11 @@ public class VaultClient {
         if (authMethod == null || authMethod.isEmpty()) {
             return new TokenAuthentication();
         }
-        switch (vault.getConfig().getAuthMethod().toLowerCase()) {
-            case "approle":
-                return new AppRoleAuthentication();
-            default:
-                throw new VaultException("Unsupported auth method: " + authMethod);
-        }
+        return switch (vault.getConfig().getAuthMethod().toLowerCase()) {
+            case "approle" -> new AppRoleAuthentication();
+            case "awsiam" -> new AwsIamAuthentication();
+            default -> throw new VaultException("Unsupported auth method: " + authMethod);
+        };
     }
 
     /**

@@ -40,7 +40,7 @@ vault kv put secret/myapp/config username="admin" password="s3cr3t"
 vault kv get secret/myapp/config 
 ```
 ---
-For AppRole authentication:
+#### For AppRole authentication:
 
 1. Enable the AppRole auth method:
     ```
@@ -79,8 +79,83 @@ For AppRole authentication:
 6. Attach policy to role: 
 
    ```vault write -f auth/approle/role/tomcat_role token_policies="default,tomcat"```
-   
 
+#### For AWS IAM authentication:
+
+1. Create an AWS Account & IAM User
+   1. Sign in at: https://aws.amazon.com/
+   2. Go to IAM → Users → Create User
+      * Username: vault-test-user
+      * Provide user access to the AWS Management Console → I want to create an IAM user
+   3. Set permissions
+      *  Choose "Attach policies directly"
+      * Add: `AmazonEC2ReadOnlyAccess`
+   4. Create the user → Select user → Security credentials → Create access key
+      * Save the Access Key ID and Secret Access Key
+2. Create an IAM Role for Vault
+   1. Go to IAM → Roles → Create Role
+   2. Trusted Entity Type: AWS service → EC2
+   3. Skip permissions
+   4. Role name: `VaultTestRole`
+   5. After creating, get the Role ARN, e.g.: `arn:aws:iam::123456789012:role/VaultTestRole`
+3. Attach Inline Policy to User
+   1. Go to IAM → Users → vault-test-user → Permissions
+   2. Click "Add Inline Policy"
+   3. Use the JSON editor and paste this:
+   ```
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Sid": "Statement1",
+               "Effect": "Allow",
+               "Action": "iam:GetRole",
+               "Resource": "<Role ARN>"
+           },
+           {
+               "Sid": "Statement2",
+               "Effect": "Allow",
+               "Action": "iam:GetUser",
+               "Resource": "<Role ARN>"
+           }
+       ]
+   }
+   ```
+   4. Give it a name like AllowGetRoleForVault, and save.
+   
+4. Enable the AWS auth method:
+    ```
+    vault auth enable aws
+    ```
+5. Configure the credentials required to make AWS API calls:
+   ```
+    vault write auth/aws/config/client secret_key=<secret_key> access_key=<access_key>
+    ```
+6. Create a policy for the role:
+   1.
+   ```
+    vi tomcat.hcl
+   ```
+   ```
+    path "secret/data/myapp/config"
+    {
+        capabilities = ["read", "sudo"]
+    }
+    ```
+   2. Format the policy file:```vault policy fmt tomcat.hcl```
+   3. Create a policy with the policy defined in file:```vault policy write tomcat tomcat.hcl```
+7. Configure the policies on the role
+   ```
+    vault write auth/aws/role/dev-role-iam auth_type=iam bound_iam_principal_arn=<Role ARN> policies=default,tomcat max_ttl=500h
+   ```
+8. Configure a required X-Vault-AWS-IAM-Server-ID header (recommended)
+   ```
+   vault write auth/aws/config/client iam_server_id_header_value=vault.example.com
+   ```
+9. (Optional) Verify successful login:
+   ```
+   vault login -method=aws header_value=vault.example.com role=dev-role-iam aws_access_key_id=<access_key> aws_secret_access_key=<secret_key>
+   ```
 ### 1. Download the latest release:
 [Vault4Tomcat Releases](https://github.com/dsoumis/Vault4Tomcat/releases)
 
