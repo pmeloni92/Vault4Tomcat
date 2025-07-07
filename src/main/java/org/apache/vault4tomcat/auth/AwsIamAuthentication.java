@@ -3,17 +3,16 @@ package org.apache.vault4tomcat.auth;
 import org.apache.vault4tomcat.config.VaultConfig;
 import org.apache.vault4tomcat.vault.Vault;
 import org.apache.vault4tomcat.vault.response.LogicalResponse;
-import software.amazon.awssdk.auth.credentials.*;
-import software.amazon.awssdk.http.ContentStreamProvider;
-import software.amazon.awssdk.http.SdkHttpMethod;
-import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
-import software.amazon.awssdk.http.auth.spi.signer.SignedRequest;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import java.security.MessageDigest;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -23,10 +22,13 @@ import java.util.stream.Collectors;
 public class AwsIamAuthentication implements VaultAuthenticator {
 
     // Prepare the AWS STS GetCallerIdentity request to be signed
-    private static final String stsEndpoint = "https://sts.amazonaws.com/";
-    private static final String stsActionBody = "Action=GetCallerIdentity&Version=2011-06-15";
-    private static final byte[] bodyBytes = stsActionBody.getBytes(StandardCharsets.UTF_8);
+    public static final String stsEndpoint = "https://sts.amazonaws.com/";
+    public static final String stsRegion = "us-east-1";
+    public static final String stsService = "sts";
 
+    private static final String stsActionBody = "Action=GetCallerIdentity&Version=2011-06-15";
+
+    private static final String ALGORITHM = "AWS4-HMAC-SHA256";
 
     /**
      * Makes an API call to fetch client token using app role id and secret id defined in the VaultConfig.
@@ -43,17 +45,10 @@ public class AwsIamAuthentication implements VaultAuthenticator {
             throw new IllegalArgumentException("AWS authentication requires a role name");
         }
 
-        SignedRequest signed = generateSignedRequest(config);
-        // Extract signed headers (except the Host header) to build the Vault login payload
-        Map<String, List<String>> signedHeaders = signed.request().headers();
-
-        String headerJson = "{" + signedHeaders.entrySet().stream()
-                .filter(map -> !map.getKey().equals("Host"))
-                .map(e -> "\"" + e.getKey() + "\": [\"" + e.getValue().getFirst() + "\"]")
-                .collect(Collectors.joining(", ")) + "}";
+        String headerJson = createHeaderJsonForPostRequest(config, config.getAwsService(), config.getAwsRegion(), config.getAwsEndpoint());
 
         String urlB64 = Base64.getEncoder().encodeToString(stsEndpoint.getBytes(StandardCharsets.UTF_8));
-        String bodyB64 = Base64.getEncoder().encodeToString(bodyBytes);
+        String bodyB64 = Base64.getEncoder().encodeToString(stsActionBody.getBytes(StandardCharsets.UTF_8));
         String headersB64 = Base64.getEncoder().encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
         LogicalResponse logicalResponse = vault.logical().login(role, urlB64, bodyB64, headersB64);
 
@@ -64,58 +59,120 @@ public class AwsIamAuthentication implements VaultAuthenticator {
         return token;
     }
 
-    private SignedRequest generateSignedRequest(VaultConfig config) {
+    private String createHeaderJsonForPostRequest(VaultConfig config, String service, String region, String requestUrl) throws URISyntaxException {
+        URI uri = new URI(requestUrl);
 
-        AwsCredentials awsCreds = resolveAwsCredentials(config);
+        Date now = new Date();
 
-        // Build the unsigned STS HTTP request (method, URL, headers, body)
-        SdkHttpRequest.Builder requestBuilder = SdkHttpRequest.builder()
-                .method(SdkHttpMethod.POST)
-                .uri(stsEndpoint)
-                .putHeader("Host", "sts.amazonaws.com")
-                .putHeader("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
-                .putHeader("Content-Length", String.valueOf(bodyBytes.length));
-        // Include Vault AWS IAM server ID header if configured
+        DateFormat dfm = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
+        dfm.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String amzDate = dfm.format(now);
+
+        DateFormat dfm1 = new SimpleDateFormat("yyyyMMdd");
+        dfm1.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String datestamp = dfm1.format(now);
+
+        String payloadHash = calculateHash(stsActionBody);
+        Map<String, String> headers = new HashMap<>();
+        headers.put("x-amz-content-sha256", payloadHash);
+
+        headers.put("Content-Length", String.valueOf(stsActionBody.length()));
+        headers.put("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
+
+        String sessionToken = config.getAwsSessionToken();
+        if (sessionToken != null && !sessionToken.isEmpty()) {
+            headers.put("x-amz-security-token", sessionToken);
+        }
+
+        headers.put("X-Amz-Date", amzDate);
+
         String iamServerId = config.getAwsHeaderValue();
         if (iamServerId != null && !iamServerId.isEmpty()) {
-            requestBuilder.putHeader("X-Vault-AWS-IAM-Server-Id", iamServerId);
+            headers.put("X-Vault-AWS-IAM-Server-Id", iamServerId);
         }
-        SdkHttpRequest unsignedRequest = requestBuilder.build();
 
-        // Create the request payload to be signed
-        ContentStreamProvider requestPayload = ContentStreamProvider.fromUtf8String(stsActionBody);
+        headers.put("host", uri.getHost());
 
-        return AwsV4HttpSigner.create().sign(r -> r.identity(awsCreds)
-                .request(unsignedRequest)
-                .payload(requestPayload)
-                .putProperty(AwsV4HttpSigner.SERVICE_SIGNING_NAME, "sts")
-                .putProperty(AwsV4HttpSigner.REGION_NAME, config.getAwsRegion()));
+        String authorizationHeader = getAuthorizationHeader(config, service, region, uri.getPath(), amzDate, datestamp, headers, payloadHash);
+        headers.put("Authorization", authorizationHeader);
+
+        return headers.entrySet().stream()
+                .filter(map -> !map.getKey().equals("host"))
+                .sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
+                .map(e -> String.format("\"%s\" : [ \"%s\" ]",
+                        e.getKey(),
+                        e.getValue()))
+                .collect(Collectors.joining(", ", "{ ", " }"));
     }
 
-    private AwsCredentialsProvider createAwsCredentialsProvider(VaultConfig config) {
-        String accessKey = config.getAwsAccessKey();
-        String secretKey = config.getAwsSecretKey();
-        String sessionToken = config.getAwsSessionToken();
-        if (accessKey != null && !accessKey.isEmpty() && secretKey != null && !secretKey.isEmpty()) {
-            // Use static credentials from environment (VaultConfig) if provided
-            AwsCredentials creds;
-            if (sessionToken != null && !sessionToken.isEmpty()) {
-                creds = AwsSessionCredentials.create(accessKey, secretKey, sessionToken);
-            } else {
-                creds = AwsBasicCredentials.create(accessKey, secretKey);
-            }
-            return StaticCredentialsProvider.create(creds);
-        } else {
-            // Fall back to default AWS credentials provider chain
-            return DefaultCredentialsProvider.create();
-        }
+    private String getAuthorizationHeader(VaultConfig config, String service, String region, String uriPath, String amzDate, String datestamp,
+                                          Map<String, String> headers, String payloadHash) {
+
+        // Create the canonical request
+        String canonicalHeaders = headers.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
+                .map(entry -> entry.getKey().toLowerCase() + ":" + entry.getValue().trim() + "\n")
+                .collect(Collectors.joining());
+        String signedHeaders = headers.keySet().stream()
+                .map(String::toLowerCase)
+                .sorted()
+                .collect(Collectors.joining(";"));
+
+        String canonicalRequest = "POST" + "\n" + uriPath + "\n\n" +
+                canonicalHeaders + "\n" + signedHeaders + "\n" + payloadHash;
+
+        // Create the string to sign
+        String credentialScope = datestamp + "/" + region + "/" + service + "/aws4_request";
+        String stringToSign = ALGORITHM + "\n" + amzDate + "\n" + credentialScope + "\n" + calculateHash(canonicalRequest);
+
+        // Calculate the signature
+        byte[] signingKey = getSignatureKey(config.getAwsSecretKey(), datestamp, region, service);
+        String signature = calculateHmacHex(signingKey, stringToSign);
+
+        // Create the authorization header
+        return ALGORITHM + " Credential=" + config.getAwsAccessKey() + "/" + credentialScope +
+                ", SignedHeaders=" + signedHeaders + ", Signature=" + signature;
     }
 
-    private AwsCredentials resolveAwsCredentials(VaultConfig config) {
+    private byte[] getSignatureKey(String key, String dateStamp, String regionName, String serviceName) {
+        byte[] kSecret = ("AWS4" + key).getBytes(StandardCharsets.UTF_8);
+        byte[] kDate = hmacSHA256(kSecret, dateStamp);
+        byte[] kRegion = hmacSHA256(kDate, regionName);
+        byte[] kService = hmacSHA256(kRegion, serviceName);
+        return hmacSHA256(kService, "aws4_request");
+    }
+
+    private String calculateHmacHex(byte[] key, String data) {
+        byte[] hmac = hmacSHA256(key, data);
+        return bytesToHex(hmac);
+    }
+
+    private byte[] hmacSHA256(byte[] key, String data) {
         try {
-            return createAwsCredentialsProvider(config).resolveCredentials();
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
-            throw new IllegalArgumentException("No AWS credentials available for IAM authentication: " + e.getMessage());
+            throw new RuntimeException("Failed to calculate HMAC-SHA256", e);
         }
     }
+
+    private String calculateHash(String data) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
+            return bytesToHex(hash);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to calculate SHA-256 hash", e);
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(String.format("%02x", b));
+        }
+        return result.toString();
+    }
+
 }

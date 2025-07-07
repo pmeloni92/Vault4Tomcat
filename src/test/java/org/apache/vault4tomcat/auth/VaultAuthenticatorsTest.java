@@ -60,6 +60,10 @@ public class VaultAuthenticatorsTest {
         VaultConfig vaultConfig = new VaultConfig(tempFile.toString());
         String token = new AwsIamAuthentication().authenticate(Vault.create(vaultConfig));
         assertFalse(token.isEmpty());
+
+        VaultClient client = new VaultClient(vaultConfig);
+        Map<String, String> secretData = client.getSecret("myapp/config");
+        assertNotNull(secretData, "Secret data should not be null");
     }
 
 }

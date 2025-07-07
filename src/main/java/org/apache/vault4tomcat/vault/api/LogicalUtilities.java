@@ -104,14 +104,13 @@ public class LogicalUtilities {
                     .connectTimeoutSeconds(config.getOpenTimeout())
                     .readTimeoutSeconds(config.getReadTimeout());
 
-            StringBuilder body = new StringBuilder();
-            body.append("{\"role\":\"").append(escapeJson(role)).append("\"")
-                .append(",\"iam_http_request_method\":\"POST\"")
-                .append(",\"iam_request_url\":\"").append(urlB64).append("\"")
-                .append(",\"iam_request_body\":\"").append(bodyB64).append("\"")
-                .append(",\"iam_request_headers\":\"").append(headersB64).append("\" }");
+            String body = "{\"role\":\"" + escapeJson(role) + "\"" +
+                    ",\"iam_http_request_method\":\"POST\"" +
+                    ",\"iam_request_url\":\"" + urlB64 + "\"" +
+                    ",\"iam_request_body\":\"" + bodyB64 + "\"" +
+                    ",\"iam_request_headers\":\"" + headersB64 + "\" }";
 
-            final RestResponse response = vaultHttpClient.post(body.toString());
+            final RestResponse response = vaultHttpClient.post(body);
             return new LogicalResponse(response, "login");
         } catch (RestException e) {
             throw new VaultException("AWS IAM login to Vault failed: " + e.getMessage());

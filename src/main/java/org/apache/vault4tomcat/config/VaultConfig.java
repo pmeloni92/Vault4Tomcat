@@ -1,5 +1,6 @@
 package org.apache.vault4tomcat.config;
 
+import org.apache.vault4tomcat.auth.AwsIamAuthentication;
 import org.apache.vault4tomcat.vault.VaultException;
 
 import java.io.FileInputStream;
@@ -32,6 +33,8 @@ public class VaultConfig implements Serializable {
     public static final String AWS_SESSION_TOKEN = "vault.auth.aws.session_token";
     public static final String AWS_HEADER_VALUE = "vault.auth.aws.header_value";
     public static final String AWS_REGION = "vault.auth.aws.region";
+    public static final String AWS_ENDPOINT = "vault.auth.aws.endpoint";
+    public static final String AWS_SERVICE = "vault.auth.aws.service";
 
     private final String address;
     private String authMethod;
@@ -46,6 +49,8 @@ public class VaultConfig implements Serializable {
     private String awsSessionToken;
     private String awsHeaderValue;
     private String awsRegion;
+    private String awsService;
+    private String awsEndpoint;
 
     private String nameSpace;
 
@@ -75,6 +80,8 @@ public class VaultConfig implements Serializable {
         if ((env = System.getenv("VAULT_AUTH_AWS_SESSION_TOKEN")) != null) props.setProperty(AWS_SESSION_TOKEN, env);
         if ((env = System.getenv("VAULT_AUTH_AWS_HEADER_VALUE")) != null) props.setProperty(AWS_HEADER_VALUE, env);
         if ((env = System.getenv("VAULT_AUTH_AWS_REGION")) != null) props.setProperty(AWS_REGION, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_SERVICE")) != null) props.setProperty(AWS_SERVICE, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_SERVICE")) != null) props.setProperty(AWS_ENDPOINT, env);
 
         this.address = props.getProperty(VAULT_ADDR, "http://127.0.0.1:8200");
         this.token = props.getProperty(VAULT_TOKEN);
@@ -95,7 +102,9 @@ public class VaultConfig implements Serializable {
         this.awsSecretKey = props.getProperty(AWS_SECRET_KEY);
         this.awsSessionToken = props.getProperty(AWS_SESSION_TOKEN);
         this.awsHeaderValue = props.getProperty(AWS_HEADER_VALUE);
-        this.awsRegion = props.getProperty(AWS_REGION, "us-east-1");
+        this.awsRegion = props.getProperty(AWS_REGION, AwsIamAuthentication.stsRegion);
+        this.awsService = props.getProperty(AWS_SERVICE, AwsIamAuthentication.stsService);
+        this.awsEndpoint = props.getProperty(AWS_ENDPOINT, AwsIamAuthentication.stsEndpoint);
 
     }
 
@@ -201,5 +210,9 @@ public class VaultConfig implements Serializable {
     public String getAwsHeaderValue() { return awsHeaderValue; }
 
     public String getAwsRegion() { return awsRegion; }
+
+    public String getAwsService() { return awsService; }
+
+    public String getAwsEndpoint() { return awsEndpoint; }
 }
 
