@@ -4,8 +4,6 @@ import org.apache.catalina.Globals;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.IntrospectionUtils;
-import org.apache.vault4tomcat.auth.TokenAuthentication;
-import org.apache.vault4tomcat.auth.VaultAuthenticator;
 import org.apache.vault4tomcat.config.VaultConfig;
 import org.apache.vault4tomcat.core.VaultClient;
 

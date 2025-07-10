@@ -92,6 +92,31 @@ public class LogicalUtilities {
         }
     }
 
+    public static LogicalResponse awsIamLogin(final VaultConfig config, final String role,
+                                              final String urlB64, final String bodyB64, final String headersB64)
+            throws VaultException {
+        final String endpoint = "/v1/" + "auth/aws/login";
+
+        try {
+            final VaultHttpClient vaultHttpClient = new VaultHttpClient()
+                    .url(config.getAddress() + endpoint)
+                    .header("Content-Type", "application/json")
+                    .connectTimeoutSeconds(config.getOpenTimeout())
+                    .readTimeoutSeconds(config.getReadTimeout());
+
+            String body = "{\"role\":\"" + escapeJson(role) + "\"" +
+                    ",\"iam_http_request_method\":\"POST\"" +
+                    ",\"iam_request_url\":\"" + urlB64 + "\"" +
+                    ",\"iam_request_body\":\"" + bodyB64 + "\"" +
+                    ",\"iam_request_headers\":\"" + headersB64 + "\" }";
+
+            final RestResponse response = vaultHttpClient.post(body);
+            return new LogicalResponse(response, "login");
+        } catch (RestException e) {
+            throw new VaultException("AWS IAM login to Vault failed: " + e.getMessage());
+        }
+    }
+
     protected static String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"");

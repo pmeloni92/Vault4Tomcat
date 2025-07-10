@@ -41,4 +41,29 @@ public class VaultAuthenticatorsTest {
 //        assertEquals(120, token.getLeaseDuration());
     }
 
+    @Test
+    public void testAwsIamAuthenticatorWithoutKeys() throws Exception {
+
+        Properties props = new Properties();
+        props.setProperty(VaultConfig.VAULT_ADDR, "http://127.0.0.1:8200");
+        props.setProperty(VaultConfig.AUTH_METHOD, "awsiam");
+        props.setProperty(VaultConfig.AWS_ROLE, "dev-role-iam");
+        props.setProperty(VaultConfig.AWS_ACCESS_KEY, "");
+        props.setProperty(VaultConfig.AWS_SECRET_KEY, "");
+        props.setProperty(VaultConfig.AWS_SESSION_TOKEN, "");
+        props.setProperty(VaultConfig.AWS_HEADER_VALUE, "vault.example.com");
+        Path tempFile = Files.createTempFile("vault", ".properties");
+        try (OutputStream os = Files.newOutputStream(tempFile)) {
+            props.store(os, null);
+        }
+
+        VaultConfig vaultConfig = new VaultConfig(tempFile.toString());
+        String token = new AwsIamAuthentication().authenticate(Vault.create(vaultConfig));
+        assertFalse(token.isEmpty());
+
+        VaultClient client = new VaultClient(vaultConfig);
+        Map<String, String> secretData = client.getSecret("myapp/config");
+        assertNotNull(secretData, "Secret data should not be null");
+    }
+
 }

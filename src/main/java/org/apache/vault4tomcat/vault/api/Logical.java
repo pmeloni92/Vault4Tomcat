@@ -63,4 +63,9 @@ public class Logical {
         return LogicalUtilities.appRoleLogin(config, roleId, secretId);
     }
 
+    public LogicalResponse login(final String role, final String urlB64,
+                                 final String bodyB64, final String headersB64) throws VaultException {
+        return LogicalUtilities.awsIamLogin(config, role, urlB64, bodyB64, headersB64);
+    }
+
 }

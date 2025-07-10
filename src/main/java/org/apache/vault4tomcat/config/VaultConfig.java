@@ -1,5 +1,6 @@
 package org.apache.vault4tomcat.config;
 
+import org.apache.vault4tomcat.auth.AwsIamAuthentication;
 import org.apache.vault4tomcat.vault.VaultException;
 
 import java.io.FileInputStream;
@@ -25,12 +26,31 @@ public class VaultConfig implements Serializable {
     // AppRole
     public static final String APPROLE_ROLE_ID = "vault.auth.approle.role_id";
     public static final String APPROLE_SECRET_ID = "vault.auth.approle.secret_id";
+    // AWS
+    public static final String AWS_ROLE = "vault.auth.aws.role";
+    public static final String AWS_ACCESS_KEY = "vault.auth.aws.access_key";
+    public static final String AWS_SECRET_KEY = "vault.auth.aws.secret_key";
+    public static final String AWS_SESSION_TOKEN = "vault.auth.aws.session_token";
+    public static final String AWS_HEADER_VALUE = "vault.auth.aws.header_value";
+    public static final String AWS_REGION = "vault.auth.aws.region";
+    public static final String AWS_ENDPOINT = "vault.auth.aws.endpoint";
+    public static final String AWS_SERVICE = "vault.auth.aws.service";
 
-    private String address;
+    private final String address;
     private String authMethod;
     private String token;
+
     private String appRoleId;
     private String appRoleSecretId;
+
+    private String awsRole;
+    private String awsAccessKey;
+    private String awsSecretKey;
+    private String awsSessionToken;
+    private String awsHeaderValue;
+    private String awsRegion;
+    private String awsService;
+    private String awsEndpoint;
 
     private String nameSpace;
 
@@ -54,12 +74,16 @@ public class VaultConfig implements Serializable {
         if ((env = System.getenv("VAULT_AUTH_METHOD")) != null) props.setProperty(AUTH_METHOD, env);
         if ((env = System.getenv("VAULT_AUTH_APPROLE_ROLE_ID")) != null) props.setProperty(APPROLE_ROLE_ID, env);
         if ((env = System.getenv("VAULT_AUTH_APPROLE_SECRET_ID")) != null) props.setProperty(APPROLE_SECRET_ID, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_ROLE")) != null) props.setProperty(AWS_ROLE, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_ACCESS_KEY")) != null) props.setProperty(AWS_ACCESS_KEY, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_SECRET_KEY")) != null) props.setProperty(AWS_SECRET_KEY, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_SESSION_TOKEN")) != null) props.setProperty(AWS_SESSION_TOKEN, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_HEADER_VALUE")) != null) props.setProperty(AWS_HEADER_VALUE, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_REGION")) != null) props.setProperty(AWS_REGION, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_SERVICE")) != null) props.setProperty(AWS_SERVICE, env);
+        if ((env = System.getenv("VAULT_AUTH_AWS_SERVICE")) != null) props.setProperty(AWS_ENDPOINT, env);
 
         this.address = props.getProperty(VAULT_ADDR, "http://127.0.0.1:8200");
-        if (this.address.isEmpty()) {
-            throw new IllegalArgumentException("Vault address must be specified.");
-        }
-
         this.token = props.getProperty(VAULT_TOKEN);
         String method = props.getProperty(AUTH_METHOD);
         if (method == null || method.isEmpty()) {
@@ -72,6 +96,15 @@ public class VaultConfig implements Serializable {
 
         this.appRoleId = props.getProperty(APPROLE_ROLE_ID);
         this.appRoleSecretId = props.getProperty(APPROLE_SECRET_ID);
+
+        this.awsRole = props.getProperty(AWS_ROLE);
+        this.awsAccessKey = props.getProperty(AWS_ACCESS_KEY);
+        this.awsSecretKey = props.getProperty(AWS_SECRET_KEY);
+        this.awsSessionToken = props.getProperty(AWS_SESSION_TOKEN);
+        this.awsHeaderValue = props.getProperty(AWS_HEADER_VALUE);
+        this.awsRegion = props.getProperty(AWS_REGION, AwsIamAuthentication.stsRegion);
+        this.awsService = props.getProperty(AWS_SERVICE, AwsIamAuthentication.stsService);
+        this.awsEndpoint = props.getProperty(AWS_ENDPOINT, AwsIamAuthentication.stsEndpoint);
 
     }
 
@@ -102,21 +135,6 @@ public class VaultConfig implements Serializable {
         return nameSpace;
     }
 
-    /**
-     * <p>Sets the address (URL) of the Vault server instance to which API calls should be sent.
-     * E.g. <code><a href="http://127.0.0.1:8200">http://127.0.0.1:8200</a></code>.</p>
-     *
-     * <p><code>address</code> is required for the Vault driver to function.
-     *
-     * @param address The Vault server base URL
-     */
-    public void setAddress(final String address) {
-        this.address = address.trim();
-        if (this.address.endsWith("/")) {
-            this.address = this.address.substring(0, this.address.length() - 1);
-        }
-    }
-
     public String getAddress() {
         return address;
     }
@@ -129,13 +147,8 @@ public class VaultConfig implements Serializable {
      * the "userpass" auth backend, and populate it prior to making any other API calls).</p>
      *
      * @param token The token to use for accessing Vault
-     * @return This object, with token populated, ready for additional builder-pattern method calls
-     * or else finalization with the build() method
      */
-    public VaultConfig setToken(final String token) {
-        this.token = token;
-        return this;
-    }
+    public void setToken(final String token) { this.token = token; }
 
     public String getToken() {
         return token;
@@ -180,14 +193,26 @@ public class VaultConfig implements Serializable {
     }
     public boolean isSslVerify() { return sslVerify; }
 
-    public void setAppRoleId(String appRoleId) { this.appRoleId = appRoleId; }
     public String getAppRoleId() { return appRoleId; }
 
-    public void setAppRoleSecretId(String appRoleSecretId) { this.appRoleSecretId = appRoleSecretId; }
     public String getAppRoleSecretId() { return appRoleSecretId; }
 
-    public void setAuthMethod(String authMethod) { this.authMethod = authMethod; }
     public String getAuthMethod() { return authMethod; }
 
+    public String getAwsRole() { return awsRole; }
+
+    public String getAwsAccessKey() { return awsAccessKey; }
+
+    public String getAwsSecretKey() { return awsSecretKey; }
+
+    public String getAwsSessionToken() { return awsSessionToken; }
+
+    public String getAwsHeaderValue() { return awsHeaderValue; }
+
+    public String getAwsRegion() { return awsRegion; }
+
+    public String getAwsService() { return awsService; }
+
+    public String getAwsEndpoint() { return awsEndpoint; }
 }
 
